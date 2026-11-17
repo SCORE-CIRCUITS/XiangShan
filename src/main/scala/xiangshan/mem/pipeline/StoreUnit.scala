@@ -93,9 +93,12 @@ class StoreUnit(implicit p: Parameters) extends XSModule
   val s0_vec_valid        = io.vecstin.valid
   val s0_ma_st_valid      = io.misalign_stin.valid
   val s0_valid            = s0_iss_valid || s0_prf_valid || s0_vec_valid || s0_ma_st_valid
+  // A younger vector flow may replay until it reaches the ROB head (e.g. a
+  // guest-page fault). Let an older scalar store make progress in that case.
+  val s0_rs_older         = io.stin.bits.uop.robIdx < io.vecstin.bits.uop.robIdx
   val s0_use_flow_ma      = s0_ma_st_valid
-  val s0_use_flow_vec     = s0_vec_valid && !s0_ma_st_valid
-  val s0_use_flow_rs      = s0_iss_valid && !s0_vec_valid && !s0_ma_st_valid
+  val s0_use_flow_vec     = s0_vec_valid && !s0_ma_st_valid && !(s0_iss_valid && s0_rs_older)
+  val s0_use_flow_rs      = s0_iss_valid && !s0_ma_st_valid && (!s0_vec_valid || s0_rs_older)
   val s0_use_flow_prf     = s0_prf_valid && !s0_iss_valid && !s0_vec_valid && !s0_ma_st_valid
   val s0_use_non_prf_flow = s0_use_flow_rs || s0_use_flow_vec || s0_use_flow_ma
   val s0_stin             = Mux(s0_use_flow_rs, io.stin.bits, 0.U.asTypeOf(io.stin.bits))
